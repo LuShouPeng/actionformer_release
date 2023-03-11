@@ -1,2 +1,0 @@
-from .loss import EvidentialLossSumOfSquares
-from .paper_loss import PaperEvidentialLossSumOfSquares

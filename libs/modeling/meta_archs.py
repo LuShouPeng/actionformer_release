@@ -823,6 +823,7 @@ from .losses import ctr_diou_loss_1d, sigmoid_focal_loss
 
 from ..utils import batched_nms
 from ..utils.evidentialdl.layers.continuous import DenseNormalGamma
+from ..utils.evidentialdl.layers.Conv2D import Conv2dNormalGamma
 from ..utils.evidentialdl.losses.continuous import evidential_regression_loss
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -961,7 +962,7 @@ class PtTransformerRegHead(nn.Module):
             stride=1, padding=kernel_size // 2
         )
         
-        self.EvdentialReg_head = DenseNormalGamma()
+        self.EvdentialReg_head = Conv2dNormalGamma()
 
     def forward(self, fpn_feats, fpn_masks):
         assert len(fpn_feats) == len(fpn_masks)
