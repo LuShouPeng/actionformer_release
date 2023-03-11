@@ -1253,6 +1253,7 @@ class PtTransformer(nn.Module):
             Generate batched features and masks from a list of dict items
         """
         feats = [x['feats'] for x in video_list]
+        print(video_list[0]['video_id'])
         feats_lens = torch.as_tensor([feat.shape[-1] for feat in feats])
         max_len = feats_lens.max(0).values.item()
 
@@ -1520,6 +1521,7 @@ class PtTransformer(nn.Module):
 
         # 1: gather video meta information
         vid_idxs = [x['video_id'] for x in video_list]
+
         vid_fps = [x['fps'] for x in video_list]
         vid_lens = [x['duration'] for x in video_list]
         vid_ft_stride = [x['feat_stride'] for x in video_list]
@@ -1544,6 +1546,7 @@ class PtTransformer(nn.Module):
             )
             # pass through video meta info
             results_per_vid['video_id'] = vidx
+
             results_per_vid['fps'] = fps
             results_per_vid['duration'] = vlen
             results_per_vid['feat_stride'] = stride

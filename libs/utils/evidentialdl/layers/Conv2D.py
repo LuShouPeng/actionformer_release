@@ -27,7 +27,6 @@ class Conv2dNormalGamma(nn.Module):
     
     
     def forward(self, x):
-
         if int(x.size()[-1]) == 2304:
             x = x.permute(0, 2, 1)
             output = self.Conv_2304(x).permute(0,2,1)
@@ -38,7 +37,6 @@ class Conv2dNormalGamma(nn.Module):
     
             aleatoric = beta / (alpha - 1)
             epistemic = beta / v * (alpha - 1)
-    
             return mu, v, alpha, beta, aleatoric, epistemic
         elif int(x.size()[-1]) == 1152:
             x = x.permute(0, 2, 1)
