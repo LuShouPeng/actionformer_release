@@ -984,14 +984,15 @@ class PtTransformerRegHead(nn.Module):
             squeeze_magic = magic.squeeze(dim = 0)
             
             
-            offsets_1 = []
-            #维度压缩后offsets相乘
-            for each in squeeze_magic.permute(1,0):
-                offsets_1.append(each[0]*each[1])
-            final_offsets = torch.tensor(offsets_1).unsqueeze(0)
+            # offsets_1 = []
+            # #维度压缩后offsets相乘
+            # for each in squeeze_magic.permute(1,0):
+            #     offsets_1.append(each[0]*each[1])
+            # final_offsets = torch.tensor(offsets_1).unsqueeze(0)
             
             middle_cnt += (magic,)
-            offsets_result = self.EvdentialReg_head(final_offsets.cuda())
+           # offsets_result = self.EvdentialReg_head(final_offsets.cuda())
+            offsets_result = self.EvdentialReg_head(magic)
             out_offsets += (offsets_result,)
 
         # fpn_masks remains the same
@@ -1190,7 +1191,9 @@ class PtTransformer(nn.Module):
         out_cls_logits = self.cls_head(fpn_feats, fpn_masks)
         # out_offset: List[B, 2, T_i]
         out_offsets = self.reg_head(fpn_feats, fpn_masks)[0]
-        middle_cnt = self.reg_head(fpn_feats, fpn_masks)[1]
+        #middle_cnt = self.reg_head(fpn_feats, fpn_masks)[1]
+        #middle_cnt = [x.permute(0, 2, 1) for x in middle_cnt]
+        middle_cnt = [x[0] for x in out_offsets]
         middle_cnt = [x.permute(0, 2, 1) for x in middle_cnt]
 
         # permute the outputs
@@ -1201,11 +1204,8 @@ class PtTransformer(nn.Module):
         out_offsets = list(out_offsets)
         # for i in range(0,len(out_offsets)):
         #     out_offsets[i] = [x.permute(1,0) for x in out_offsets[i]]
-
-
-        # out_offsets = list(out_offsets)
-        # for i in range(0, len(out_offsets)):
-        #     out_offsets[i] = [x.permute(0, 2, 1) for x in out_offsets[i]]
+        for i in range(0, len(out_offsets)):
+            out_offsets[i] = [x.permute(0, 2, 1) for x in out_offsets[i]]
 
             #此时Out_offsets 为不同维度FPN经过证据层后得到的参数
 
@@ -1233,7 +1233,6 @@ class PtTransformer(nn.Module):
                 out_cls_logits, out_offsets,
                 gt_cls_labels, gt_offsets,middle_cnt
             )
-            feats, masks = self.backbone(batched_inputs, batched_masks)
             return losses
 
         else:
@@ -1438,11 +1437,11 @@ class PtTransformer(nn.Module):
         # pred_offsets = torch.cat(out_offsets, dim=1)[pos_mask]
         
         gt_offsets = (torch.stack(gt_offsets)[pos_mask])
-        gt_iou_offsets = gt_offsets
-        gt_offsets_1 = []
-        for each in gt_offsets:
-            gt_offsets_1.append(each[0]*each[1])
-        gt_offsets = torch.tensor(gt_offsets_1)
+        # gt_iou_offsets = gt_offsets
+        # gt_offsets_1 = []
+        # for each in gt_offsets:
+        #     gt_offsets_1.append(each[0]*each[1])
+        # gt_offsets = torch.tensor(gt_offsets_1)
 
         # update the loss normalizer
         num_pos = pos_mask.sum().item()
@@ -1474,7 +1473,7 @@ class PtTransformer(nn.Module):
             # giou loss defined on positive samples
             reg_loss_iou = ctr_diou_loss_1d(
                 iou_pred,
-                gt_iou_offsets,
+                gt_offsets,
                 reduction='sum'  
             )
             

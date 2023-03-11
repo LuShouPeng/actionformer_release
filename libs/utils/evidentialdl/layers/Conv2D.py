@@ -6,12 +6,12 @@ import torch.nn.functional as F
 class Conv2dNormalGamma(nn.Module):
     def __init__(self):
         super(Conv2dNormalGamma, self).__init__()
-        self.Conv_2304 = nn.Conv2d(2304, 4 * 2304)
-        self.Conv_1152 = nn.Conv2d(1152, 4 * 1152)
-        self.Conv_576 = nn.Conv2d(576, 4 * 576)
-        self.Conv_288 = nn.Conv2d(288, 4 * 288)
-        self.Conv_144 = nn.Conv2d(144, 4 * 144)
-        self.Conv_72 = nn.Conv2d(72, 4 * 72)
+        self.Conv_2304 = nn.Conv1d(2304, 4 * 2304,kernel_size=1)
+        self.Conv_1152 = nn.Conv1d(1152, 4 * 1152,kernel_size=1)
+        self.Conv_576 = nn.Conv1d(576, 4 * 576,kernel_size=1)
+        self.Conv_288 = nn.Conv1d(288, 4 * 288,kernel_size=1)
+        self.Conv_144 = nn.Conv1d(144, 4 * 144,kernel_size=1)
+        self.Conv_72 = nn.Conv1d(72, 4 * 72,kernel_size=1)
 
 
     def evidence(self, x):
@@ -27,8 +27,10 @@ class Conv2dNormalGamma(nn.Module):
     
     
     def forward(self, x):
+
         if int(x.size()[-1]) == 2304:
-            output = self.Conv_2304(x)
+            x = x.permute(0, 2, 1)
+            output = self.Conv_2304(x).permute(0,2,1)
             mu, logv, logalpha, logbeta = output.chunk(4, dim=-1)
             v = self.evidence(logv)
             alpha = self.evidence(logalpha) + 1
@@ -39,7 +41,8 @@ class Conv2dNormalGamma(nn.Module):
     
             return mu, v, alpha, beta, aleatoric, epistemic
         elif int(x.size()[-1]) == 1152:
-            output = self.Conv_1152(x)
+            x = x.permute(0, 2, 1)
+            output = self.Conv_1152(x).permute(0,2,1)
             mu, logv, logalpha, logbeta = output.chunk(4, dim=-1)
             v = self.evidence(logv)
             alpha = self.evidence(logalpha) + 1
@@ -50,7 +53,8 @@ class Conv2dNormalGamma(nn.Module):
     
             return mu, v, alpha, beta, aleatoric, epistemic
         elif int(x.size()[-1]) == 576:
-            output = self.Conv_576(x)
+            x = x.permute(0, 2, 1)
+            output = self.Conv_576(x).permute(0,2,1)
             mu, logv, logalpha, logbeta = output.chunk(4, dim=-1)
             v = self.evidence(logv)
             alpha = self.evidence(logalpha) + 1
@@ -61,7 +65,8 @@ class Conv2dNormalGamma(nn.Module):
     
             return mu, v, alpha, beta, aleatoric, epistemic
         elif int(x.size()[-1]) == 288:
-            output = self.Conv_288(x)
+            x = x.permute(0, 2, 1)
+            output = self.Conv_288(x).permute(0,2,1)
             mu, logv, logalpha, logbeta = output.chunk(4, dim=-1)
             v = self.evidence(logv)
             alpha = self.evidence(logalpha) + 1
@@ -73,7 +78,8 @@ class Conv2dNormalGamma(nn.Module):
             return mu, v, alpha, beta, aleatoric, epistemic
     
         elif int(x.size()[-1]) == 144:
-            output = self.Conv_144(x)
+            x = x.permute(0, 2, 1)
+            output = self.Conv_144(x).permute(0,2,1)
             mu, logv, logalpha, logbeta = output.chunk(4, dim=-1)
             v = self.evidence(logv)
             alpha = self.evidence(logalpha) + 1
@@ -84,7 +90,8 @@ class Conv2dNormalGamma(nn.Module):
     
             return mu, v, alpha, beta, aleatoric, epistemic
         elif int(x.size()[-1]) == 72:
-            output = self.Conv_72(x)
+            x = x.permute(0, 2, 1)
+            output = self.Conv_72(x).permute(0,2,1)
             mu, logv, logalpha, logbeta = output.chunk(4, dim=-1)
             v = self.evidence(logv)
             alpha = self.evidence(logalpha) + 1
