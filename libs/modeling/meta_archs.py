@@ -318,7 +318,7 @@
 #                 'regression_range': self.reg_range
 #             }
 #         )
-        
+
 #         #Evdential generator
 #         self.evd_generator = DenseNormalGamma(2304,2304)
 
@@ -650,7 +650,6 @@
 #                 'final_loss': final_loss}
 
 
-
 #     @torch.no_grad()
 #     def inference(
 #             self,
@@ -818,7 +817,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from .models import register_meta_arch, make_backbone, make_neck, make_generator
-from .blocks import MaskedConv1D, Scale, LayerNorm
+from .blocks import MaskedConv1D, Scale, LayerNorm, MaskedEvidentialConv1D
 from .losses import ctr_diou_loss_1d, sigmoid_focal_loss
 
 from ..utils import batched_nms
@@ -957,12 +956,10 @@ class PtTransformerRegHead(nn.Module):
             self.scale.append(Scale())
 
         # segment regression
-        self.offset_head = MaskedConv1D(
-            feat_dim, 2, kernel_size,
+        self.offset_head = MaskedEvidentialConv1D(
+            feat_dim, kernel_size,
             stride=1, padding=kernel_size // 2
         )
-        
-        self.EvdentialReg_head = Conv2dNormalGamma()
 
     def forward(self, fpn_feats, fpn_masks):
         assert len(fpn_feats) == len(fpn_masks)
@@ -970,37 +967,24 @@ class PtTransformerRegHead(nn.Module):
 
         # apply the classifier for each pyramid level
         out_offsets = tuple()
-        middle_cnt = tuple()
-        
+        params = tuple()
+
         for l, (cur_feat, cur_mask) in enumerate(zip(fpn_feats, fpn_masks)):
             cur_out = cur_feat
             for idx in range(len(self.head)):
                 cur_out, _ = self.head[idx](cur_out, cur_mask)
                 cur_out = self.act(self.norm[idx](cur_out))
-            cur_offsets, _ = self.offset_head(cur_out, cur_mask)
-            # self.EvdentialReg_head.changeDim(cur_offsets)
-            #
+            cur_offsets, out_mask, v, alpha, beta, aleatoric, epistemic = self.offset_head(cur_out, cur_mask)
+
+            params += (cur_offsets,v, alpha, beta, aleatoric, epistemic)
             magic = F.relu(self.scale[l](cur_offsets))
-            squeeze_magic = magic.squeeze(dim = 0)
-            
-            
-            # offsets_1 = []
-            # #维度压缩后offsets相乘
-            # for each in squeeze_magic.permute(1,0):
-            #     offsets_1.append(each[0]*each[1])
-            # final_offsets = torch.tensor(offsets_1).unsqueeze(0)
-            
-            middle_cnt += (magic,)
-           # offsets_result = self.EvdentialReg_head(final_offsets.cuda())
-            offsets_result = self.EvdentialReg_head(magic)
-            out_offsets += (offsets_result,)
+            # squeeze_magic = magic.squeeze(dim = 0)
 
-        # fpn_masks remains the same
-        # 输出的是不同维度特征的证据参数
-        
-        return out_offsets,middle_cnt
+            out_offsets += (magic,)
 
- 
+        return out_offsets, params
+
+
 @register_meta_arch("LocPointTransformer")
 class PtTransformer(nn.Module):
     """
@@ -1192,10 +1176,13 @@ class PtTransformer(nn.Module):
         out_cls_logits = self.cls_head(fpn_feats, fpn_masks)
         # out_offset: List[B, 2, T_i]
         out_offsets = self.reg_head(fpn_feats, fpn_masks)[0]
-        #middle_cnt = self.reg_head(fpn_feats, fpn_masks)[1]
-        #middle_cnt = [x.permute(0, 2, 1) for x in middle_cnt]
-        middle_cnt = [x[0] for x in out_offsets]
-        middle_cnt = [x.permute(0, 2, 1) for x in middle_cnt]
+        params = self.reg_head(fpn_feats, fpn_masks)[1]
+        params = list(params)
+        out_offsets = [x.permute(0, 2, 1) for x in out_offsets]
+
+
+        # for i in range(0,len(params)):
+        #     out_offsets[i] = [x.permute(1,0) for x in out_offsets[i]]
 
         # permute the outputs
         # out_cls: F List[B, #cls, T_i] -> F List[B, T_i, #cls]
@@ -1205,14 +1192,14 @@ class PtTransformer(nn.Module):
         out_offsets = list(out_offsets)
         # for i in range(0,len(out_offsets)):
         #     out_offsets[i] = [x.permute(1,0) for x in out_offsets[i]]
-        for i in range(0, len(out_offsets)):
-            out_offsets[i] = [x.permute(0, 2, 1) for x in out_offsets[i]]
+        for i in range(0, len(params)):
+            params[i] = [x.permute(0, 2, 1) for x in params[i]]
 
-            #此时Out_offsets 为不同维度FPN经过证据层后得到的参数
+
 
         # out_offsets = [x.permute(0, 2, 1) for x in out_offsets]
         # fpn_masks: F list[B, 1, T_i] -> F List[B, T_i]
-        
+
         fpn_masks = [x.squeeze(1) for x in fpn_masks]
 
         # return loss during training
@@ -1232,7 +1219,7 @@ class PtTransformer(nn.Module):
             losses = self.losses(
                 fpn_masks,
                 out_cls_logits, out_offsets,
-                gt_cls_labels, gt_offsets,middle_cnt
+                gt_cls_labels, gt_offsets, params
             )
             return losses
 
@@ -1244,7 +1231,7 @@ class PtTransformer(nn.Module):
             # )
             results = self.inference(
                 video_list, points, fpn_masks,
-                out_cls_logits, middle_cnt
+                out_cls_logits, out_offsets
             )
             return results
 
@@ -1397,7 +1384,7 @@ class PtTransformer(nn.Module):
     def losses(
             self, fpn_masks,
             out_cls_logits, out_offsets,
-            gt_cls_labels, gt_offsets,midde_cnts
+            gt_cls_labels, gt_offsets, params
     ):
         # fpn_masks, out_*: F (List) [B, T_i, C]
         # gt_* : B (list) [F T, C]
@@ -1408,10 +1395,10 @@ class PtTransformer(nn.Module):
         # stack the list -> (B, FT) -> (# Valid, )
         gt_cls = torch.stack(gt_cls_labels)
         pos_mask = torch.logical_and((gt_cls.sum(-1) > 0), valid_mask)
-        
+
         # cat the predicted offsets -> (B, FT, 2 (xC)) -> # (#Pos, 2 (xC))
-        iou_pred = torch.nn.functional.relu(torch.cat(midde_cnts, dim=1)[pos_mask], inplace=True)
-        
+        iou_pred = torch.cat(out_offsets, dim=1)[pos_mask]
+
         mu = []
         v = []
         alpha = []
@@ -1420,7 +1407,7 @@ class PtTransformer(nn.Module):
         epistemic = []
         # 如何给参数加掩膜
 
-        for each in out_offsets:
+        for each in params:
             mu.append(each[0])
             v.append(each[1])
             alpha.append(each[2])
@@ -1428,16 +1415,15 @@ class PtTransformer(nn.Module):
             aleatoric.append(each[4])
             epistemic.append(each[5])
 
-        pred_offsets =(torch.cat(mu, dim=1)[pos_mask],
-                       torch.cat(v, dim=1)[pos_mask],
-                       torch.cat(alpha, dim=1)[pos_mask],
-                       torch.cat(beta, dim=1)[pos_mask],
-                       torch.cat(aleatoric, dim=1)[pos_mask],
-                       torch.cat(epistemic, dim=1)[pos_mask])
-
+        pred_offsets = (torch.cat(mu, dim=1)[pos_mask],
+                        torch.cat(v, dim=1)[pos_mask],
+                        torch.cat(alpha, dim=1)[pos_mask],
+                        torch.cat(beta, dim=1)[pos_mask],
+                        torch.cat(aleatoric, dim=1)[pos_mask],
+                        torch.cat(epistemic, dim=1)[pos_mask])
 
         # pred_offsets = torch.cat(out_offsets, dim=1)[pos_mask]
-        
+
         gt_offsets = (torch.stack(gt_offsets)[pos_mask])
         # gt_iou_offsets = gt_offsets
         # gt_offsets_1 = []
@@ -1466,8 +1452,9 @@ class PtTransformer(nn.Module):
         )
         cls_loss /= self.loss_normalizer
         # 需要更改的地方
-        coffef  = self.coffef
-        criterion = evidential_regression_loss(coffef)
+        #coffef = self.coffef
+
+        criterion = evidential_regression_loss(coffef = 0.001)
 
         # 2. regression using IoU/GIoU loss (defined on positive samples)
         if num_pos == 0:
@@ -1477,24 +1464,21 @@ class PtTransformer(nn.Module):
             reg_loss_iou = ctr_diou_loss_1d(
                 iou_pred,
                 gt_offsets,
-                reduction='sum'  
+                reduction='sum'
             )
-            
+
             reg_loss_evi = criterion(gt_offsets, pred_offsets)
             reg_loss_evi /= self.loss_normalizer
             reg_loss_iou /= self.loss_normalizer
-            
-            
+
         if self.Iou_Evidence_loss_weight > 0:
-            
+
             Iou_Evidence_loss_weight = self.Iou_Evidence_loss_weight
         else:
             Iou_Evidence_loss_weight = reg_loss_iou.detach() / max(reg_loss_evi.item(), 0.01)
-            
-            
-        reg_loss = reg_loss_iou   + reg_loss_evi*Iou_Evidence_loss_weight
-        print(Iou_Evidence_loss_weight)
 
+        reg_loss = reg_loss_iou + reg_loss_evi * Iou_Evidence_loss_weight
+        #print(Iou_Evidence_loss_weight)
 
         if self.train_loss_weight > 0:
             loss_weight = self.train_loss_weight
@@ -1503,13 +1487,11 @@ class PtTransformer(nn.Module):
 
         # return a dict of losses
         final_loss = cls_loss + reg_loss * loss_weight
-        print(loss_weight)
-        
+        #print(loss_weight)
+
         return {'cls_loss': cls_loss,
                 'reg_loss': reg_loss,
                 'final_loss': final_loss}
-
-
 
     @torch.no_grad()
     def inference(

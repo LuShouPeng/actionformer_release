@@ -6,6 +6,106 @@ import torch.nn.functional as F
 from torch import nn
 from .weight_init import trunc_normal_
 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+class Conv2dNormalGamma(nn.Module):
+    def __init__(self):
+        super(Conv2dNormalGamma, self).__init__()
+        self.Conv_2304 = nn.Conv1d(2304, 4 * 2304, kernel_size=1)
+        self.Conv_1152 = nn.Conv1d(1152, 4 * 1152, kernel_size=1)
+        self.Conv_576 = nn.Conv1d(576, 4 * 576, kernel_size=1)
+        self.Conv_288 = nn.Conv1d(288, 4 * 288, kernel_size=1)
+        self.Conv_144 = nn.Conv1d(144, 4 * 144, kernel_size=1)
+        self.Conv_72 = nn.Conv1d(72, 4 * 72, kernel_size=1)
+
+    def evidence(self, x):
+        return F.softplus(x)
+
+        # def changeDim(self,x):
+        #     self.in_dim = int(x.size()[-1])
+        #     self.out_dim = int(x.size()[-1])
+        #     self.Conv = nn.Linear(self.in_dim * 2, 4 * self.out_dim).cuda()
+        #
+        # def getDim(self):
+        #     print(self.in_dim,self.out_dim)
+
+    def forward(self, x):
+        if int(x.size()[-1]) == 2304:
+            x = x.permute(0, 2, 1)
+            output = F.relu(self.Conv_2304(x).permute(0, 2, 1))
+            mu, logv, logalpha, logbeta = output.chunk(4, dim=-1)
+            v = self.evidence(logv)
+            alpha = self.evidence(logalpha) + 1
+            beta = self.evidence(logbeta)
+
+            aleatoric = beta / (alpha - 1)
+            epistemic = beta / v * (alpha - 1)
+            return mu, v, alpha, beta, aleatoric, epistemic
+        elif int(x.size()[-1]) == 1152:
+            x = x.permute(0, 2, 1)
+            output = F.relu(self.Conv_1152(x).permute(0, 2, 1))
+            mu, logv, logalpha, logbeta = output.chunk(4, dim=-1)
+            v = self.evidence(logv)
+            alpha = self.evidence(logalpha) + 1
+            beta = self.evidence(logbeta)
+
+            aleatoric = beta / (alpha - 1)
+            epistemic = beta / v * (alpha - 1)
+
+            return mu, v, alpha, beta, aleatoric, epistemic
+        elif int(x.size()[-1]) == 576:
+            x = x.permute(0, 2, 1)
+            output = F.relu(self.Conv_576(x).permute(0, 2, 1))
+            mu, logv, logalpha, logbeta = output.chunk(4, dim=-1)
+            v = self.evidence(logv)
+            alpha = self.evidence(logalpha) + 1
+            beta = self.evidence(logbeta)
+
+            aleatoric = beta / (alpha - 1)
+            epistemic = beta / v * (alpha - 1)
+
+            return mu, v, alpha, beta, aleatoric, epistemic
+        elif int(x.size()[-1]) == 288:
+            x = x.permute(0, 2, 1)
+            output = F.relu(self.Conv_288(x).permute(0, 2, 1))
+            mu, logv, logalpha, logbeta = output.chunk(4, dim=-1)
+            v = self.evidence(logv)
+            alpha = self.evidence(logalpha) + 1
+            beta = self.evidence(logbeta)
+
+            aleatoric = beta / (alpha - 1)
+            epistemic = beta / v * (alpha - 1)
+
+            return mu, v, alpha, beta, aleatoric, epistemic
+
+        elif int(x.size()[-1]) == 144:
+            x = x.permute(0, 2, 1)
+            output = F.relu(self.Conv_144(x).permute(0, 2, 1))
+            mu, logv, logalpha, logbeta = output.chunk(4, dim=-1)
+            v = self.evidence(logv)
+            alpha = self.evidence(logalpha) + 1
+            beta = self.evidence(logbeta)
+
+            aleatoric = beta / (alpha - 1)
+            epistemic = beta / v * (alpha - 1)
+
+            return mu, v, alpha, beta, aleatoric, epistemic
+        elif int(x.size()[-1]) == 72:
+            x = x.permute(0, 2, 1)
+            output = F.relu(self.Conv_72(x).permute(0, 2, 1))
+            mu, logv, logalpha, logbeta = output.chunk(4, dim=-1)
+            v = self.evidence(logv)
+            alpha = self.evidence(logalpha) + 1
+            beta = self.evidence(logbeta)
+
+            aleatoric = beta / (alpha - 1)
+            epistemic = beta / v * (alpha - 1)
+
+            return mu, v, alpha, beta, aleatoric, epistemic
+
 
 class MaskedConv1D(nn.Module):
     """
@@ -58,6 +158,81 @@ class MaskedConv1D(nn.Module):
         out_conv = out_conv * out_mask.detach()
         out_mask = out_mask.bool()
         return out_conv, out_mask
+
+
+class MaskedEvidentialConv1D(nn.Module):
+    """
+    Masked 1D convolution. Interface remains the same as Conv1d.
+    Only support a sub set of 1d convs
+    """
+    def __init__(
+        self,
+        in_channels,
+        kernel_size,
+        stride=1,
+        padding=0,
+        dilation=1,
+        groups=1,
+        bias=True,
+        padding_mode='zeros'
+    ):
+        super().__init__()
+        # element must be aligned
+        assert (kernel_size % 2 == 1) and (kernel_size // 2 == padding)
+        # stride
+        self.in_channels = in_channels
+        self.out_channels = 4 * self.in_channels
+        self.stride = stride
+        self.convEvidential = nn.Conv1d(in_channels,self.out_channels, kernel_size,
+                              stride, padding, dilation, groups, bias, padding_mode)
+        self.conv = nn.Conv1d(in_channels, 2, kernel_size,
+                              stride, padding, dilation, groups, bias, padding_mode)
+
+        # zero out the bias term if it exists
+        if bias:
+            torch.nn.init.constant_(self.conv.bias, 0.)
+
+    def evidence(self, x):
+        return F.softplus(x)
+
+    def forward(self, x, mask):
+        # x: batch size, feature channel, sequence length,
+        # mask: batch size, 1, sequence length (bool)
+        B, C, T = x.size()
+        # input length must be divisible by stride
+        assert T % self.stride == 0
+
+        # conv
+        out_conv = self.convEvidential(x)
+
+        mu, logv, logalpha, logbeta = out_conv.chunk(4, dim=-1)
+
+        mu = self.conv(mu)
+        logv = self.conv(logv)
+        logalpha = self.conv(logalpha)
+        logbeta = self.conv(logbeta)
+
+        v = self.evidence(logv)
+        alpha = self.evidence(logalpha) + 1
+        beta = self.evidence(logbeta)
+
+        aleatoric = beta / (alpha - 1)
+        epistemic = beta / v * (alpha - 1)
+
+        # compute the mask
+        if self.stride > 1:
+            # downsample the mask using nearest neighbor
+            out_mask = F.interpolate(
+                mask.to(x.dtype), size=mu.size(-1), mode='nearest'
+            )
+        else:
+            # masking out the features
+            out_mask = mask.to(x.dtype)
+
+        # masking the output, stop grad to mask
+        mu = mu * out_mask.detach()
+        out_mask = out_mask.bool()
+        return mu, out_mask , v, alpha, beta, aleatoric, epistemic
 
 
 class LayerNorm(nn.Module):
