@@ -205,7 +205,7 @@ class MaskedEvidentialConv1D(nn.Module):
         # conv
         out_conv = self.convEvidential(x)
 
-        mu, logv, logalpha, logbeta = out_conv.chunk(4, dim=-1)
+        mu, logv, logalpha, logbeta = out_conv.chunk(4, dim=1)
 
         mu = self.conv(mu)
         logv = self.conv(logv)
