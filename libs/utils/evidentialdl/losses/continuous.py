@@ -76,6 +76,7 @@ def evidential_regression_loss(coeff):
         gamma, v, alpha, beta, aleatoric, epistemic = evidential_output
         loss_nll = nig_nll(y_true.cuda(), gamma, v, alpha, beta)
         loss_reg = nig_reg(y_true.cuda(), gamma, v, alpha, beta)
+        print(coeff)
         return loss_nll + coeff * loss_reg
 
     return func

@@ -1072,6 +1072,7 @@ class PtTransformer(nn.Module):
         self.train_dropout = train_cfg['dropout']
         self.train_droppath = train_cfg['droppath']
         self.train_label_smoothing = train_cfg['label_smoothing']
+        self.coffef = train_cfg['coffef']
 
         # test time config
         self.test_pre_nms_thresh = test_cfg['pre_nms_thresh']
@@ -1465,7 +1466,8 @@ class PtTransformer(nn.Module):
         )
         cls_loss /= self.loss_normalizer
         # 需要更改的地方
-        criterion = evidential_regression_loss(coeff=1e-3)
+        coffef  = self.coffef
+        criterion = evidential_regression_loss(coffef)
 
         # 2. regression using IoU/GIoU loss (defined on positive samples)
         if num_pos == 0:
@@ -1491,6 +1493,7 @@ class PtTransformer(nn.Module):
             
             
         reg_loss = reg_loss_iou   + reg_loss_evi*Iou_Evidence_loss_weight
+        print(Iou_Evidence_loss_weight)
 
 
         if self.train_loss_weight > 0:
@@ -1500,6 +1503,7 @@ class PtTransformer(nn.Module):
 
         # return a dict of losses
         final_loss = cls_loss + reg_loss * loss_weight
+        print(loss_weight)
         
         return {'cls_loss': cls_loss,
                 'reg_loss': reg_loss,

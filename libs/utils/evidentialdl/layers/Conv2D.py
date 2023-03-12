@@ -29,7 +29,7 @@ class Conv2dNormalGamma(nn.Module):
     def forward(self, x):
         if int(x.size()[-1]) == 2304:
             x = x.permute(0, 2, 1)
-            output = self.Conv_2304(x).permute(0,2,1)
+            output = F.relu(self.Conv_2304(x).permute(0,2,1))
             mu, logv, logalpha, logbeta = output.chunk(4, dim=-1)
             v = self.evidence(logv)
             alpha = self.evidence(logalpha) + 1
@@ -40,7 +40,7 @@ class Conv2dNormalGamma(nn.Module):
             return mu, v, alpha, beta, aleatoric, epistemic
         elif int(x.size()[-1]) == 1152:
             x = x.permute(0, 2, 1)
-            output = self.Conv_1152(x).permute(0,2,1)
+            output = F.relu(self.Conv_1152(x).permute(0,2,1))
             mu, logv, logalpha, logbeta = output.chunk(4, dim=-1)
             v = self.evidence(logv)
             alpha = self.evidence(logalpha) + 1
@@ -52,7 +52,7 @@ class Conv2dNormalGamma(nn.Module):
             return mu, v, alpha, beta, aleatoric, epistemic
         elif int(x.size()[-1]) == 576:
             x = x.permute(0, 2, 1)
-            output = self.Conv_576(x).permute(0,2,1)
+            output = F.relu(self.Conv_576(x).permute(0,2,1))
             mu, logv, logalpha, logbeta = output.chunk(4, dim=-1)
             v = self.evidence(logv)
             alpha = self.evidence(logalpha) + 1
@@ -64,7 +64,7 @@ class Conv2dNormalGamma(nn.Module):
             return mu, v, alpha, beta, aleatoric, epistemic
         elif int(x.size()[-1]) == 288:
             x = x.permute(0, 2, 1)
-            output = self.Conv_288(x).permute(0,2,1)
+            output = F.relu(self.Conv_288(x).permute(0,2,1))
             mu, logv, logalpha, logbeta = output.chunk(4, dim=-1)
             v = self.evidence(logv)
             alpha = self.evidence(logalpha) + 1
@@ -77,7 +77,7 @@ class Conv2dNormalGamma(nn.Module):
     
         elif int(x.size()[-1]) == 144:
             x = x.permute(0, 2, 1)
-            output = self.Conv_144(x).permute(0,2,1)
+            output = F.relu(self.Conv_144(x).permute(0,2,1))
             mu, logv, logalpha, logbeta = output.chunk(4, dim=-1)
             v = self.evidence(logv)
             alpha = self.evidence(logalpha) + 1
@@ -89,7 +89,7 @@ class Conv2dNormalGamma(nn.Module):
             return mu, v, alpha, beta, aleatoric, epistemic
         elif int(x.size()[-1]) == 72:
             x = x.permute(0, 2, 1)
-            output = self.Conv_72(x).permute(0,2,1)
+            output = F.relu(self.Conv_72(x).permute(0,2,1))
             mu, logv, logalpha, logbeta = output.chunk(4, dim=-1)
             v = self.evidence(logv)
             alpha = self.evidence(logalpha) + 1

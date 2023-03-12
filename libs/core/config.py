@@ -35,7 +35,7 @@ DEFAULTS = {
         "force_upsampling": False,
     },
     "loader": {
-        "batch_size": 1,
+        "batch_size": 2,
         "num_workers": 4,
     },
     # network architecture
@@ -86,6 +86,7 @@ DEFAULTS = {
         "center_sample_radius": 1.5,
         "loss_weight": -1, # on reg_loss, use -1 to enable auto balancing
         "Iou_Evidence_loss_weight": -1, 
+        "coffef":1e-3,
         "cls_prior_prob": 0.01,
         "init_loss_norm": 2000,
         
