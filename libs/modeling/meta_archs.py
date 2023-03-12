@@ -976,7 +976,7 @@ class PtTransformerRegHead(nn.Module):
                 cur_out = self.act(self.norm[idx](cur_out))
             cur_offsets, out_mask, v, alpha, beta, aleatoric, epistemic = self.offset_head(cur_out, cur_mask)
 
-            params += (cur_offsets,v, alpha, beta, aleatoric, epistemic)
+            params += ((cur_offsets,v, alpha, beta, aleatoric, epistemic),)
             magic = F.relu(self.scale[l](cur_offsets))
             # squeeze_magic = magic.squeeze(dim = 0)
 
@@ -1193,7 +1193,7 @@ class PtTransformer(nn.Module):
         # for i in range(0,len(out_offsets)):
         #     out_offsets[i] = [x.permute(1,0) for x in out_offsets[i]]
         for i in range(0, len(params)):
-            params[i] = [x.permute(0, 2, 1) for x in params[i]]
+             params[i] = [x.permute(0, 2, 1) for x in params[i]]
 
 
 
@@ -1454,7 +1454,7 @@ class PtTransformer(nn.Module):
         # 需要更改的地方
         #coffef = self.coffef
 
-        criterion = evidential_regression_loss(coffef = 0.001)
+        criterion = evidential_regression_loss(coeff = 0.001)
 
         # 2. regression using IoU/GIoU loss (defined on positive samples)
         if num_pos == 0:
