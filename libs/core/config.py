@@ -20,7 +20,7 @@ DEFAULTS = {
         # input feat dim
         "input_dim": 2304,
         # number of classes
-        "num_classes": 97,
+        "num_classes": 20,
         # downsampling rate of features, 1 to use original resolution
         "downsample_rate": 1,
         # max sequence length during training
@@ -84,8 +84,8 @@ DEFAULTS = {
         # radius | none (if to use center sampling)
         "center_sample": "radius",
         "center_sample_radius": 1.5,
-        "loss_weight": -1, # on reg_loss, use -1 to enable auto balancing
-        "Iou_Evidence_loss_weight": -1, 
+        "loss_weight": 1, # on reg_loss, use -1 to enable auto balancing
+        "Iou_Evidence_loss_weight": 1,
         "coffef":1e-3,
         "cls_prior_prob": 0.01,
         "init_loss_norm": 2000,
